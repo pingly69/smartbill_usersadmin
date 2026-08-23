@@ -8,7 +8,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
 
-    <title>SmartBill Approve v2.5</title>
+    <title>SmartBill Approve v2.6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <link rel="stylesheet" href="./css/style.css">
@@ -19,6 +19,21 @@
     <div id="loading" class="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
         <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
         <p class="text-gray-500 font-medium animate-pulse">กำลังดึงข้อมูลล่าสุด...</p>
+    </div>
+
+    <!-- Unauthorized Screen -->
+    <div id="unauth-screen" class="hidden p-6">
+        <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 mt-10 border border-gray-100 text-center">
+            <div class="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                    </path>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold mb-2 text-gray-800">ไม่มีสิทธิ์เข้าใช้งาน</h2>
+            <p id="unauth-message" class="text-gray-500 text-sm mb-6">คุณไม่มีสิทธิ์เข้าใช้งานระบบนี้ (สำหรับผู้ถือวงเงินสดย่อยเท่านั้น)</p>
+        </div>
     </div>
 
     <!-- 0. Registration Screen -->
@@ -48,7 +63,7 @@
     <div id="list-screen" class="hidden pb-40">
         <header class="bg-white border-b sticky top-0 z-20 px-4 py-4 flex justify-between items-center shadow-sm">
             <div>
-                <h1 class="font-black text-xl text-indigo-900">SmartBill Approve v2.5</h1>
+                <h1 class="font-black text-xl text-indigo-900">SmartBill Approve v2.6</h1>
                 <p id="user-info" class="text-[10px] text-gray-400 font-medium uppercase tracking-wider"></p>
             </div>
             <button onclick="loadData()"
@@ -72,7 +87,7 @@
                 </svg>
             </div>
             <h3 class="text-xl font-bold text-gray-800">จัดการเรียบร้อยแล้ว!</h3>
-            <p class="text-gray-500 mt-2">ไม่มีรายการที่ต้องอนุมัติในขณะนี้</p>
+            <p class="text-gray-500 mt-2">ไม่มีรายการที่ต้องจ่ายเงินในขณะนี้</p>
         </div>
 
         <!-- Floating Action Bar -->
@@ -82,15 +97,15 @@
                 class="flex-1 bg-white border-2 border-red-500 text-red-600 font-bold py-4 rounded-xl active:bg-red-50 transition active:scale-95 uppercase tracking-wide">
                 Reject
             </button>
-            <button onclick="processApprove('Approved')"
+            <button onclick="processApprove('Paided')"
                 class="flex-1 bg-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 active:bg-indigo-700 transition active:scale-95 uppercase tracking-wide">
-                Approve
+                Paid
             </button>
         </div>
     </div>
 
-    <script src="./js/config.js"></script>
-    <script src="./js/app.js"></script>
+    <script src="./js/config.js?v=2.6"></script>
+    <script src="./js/app.js?v=2.6"></script>
 </body>
 
 </html>

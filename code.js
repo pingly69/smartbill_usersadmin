@@ -42,8 +42,23 @@ function checkUser(line_uid) {
   const sheet = ss.getSheetByName('Approve_users');
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
-    if (data[i][2] === line_uid && data[i][0] !== 'เงินสดย่อยรอตัด') {
-      return { status: 'authorized', approve_request: data[i][0] };
+    const approveRequest = String(data[i][0]).trim();
+    const userLineUid = String(data[i][2]).trim();
+    const pettycashApprove = String(data[i][3] || '').trim().toUpperCase();
+
+    if (userLineUid === line_uid && approveRequest !== 'เงินสดย่อยรอตัด') {
+      if (pettycashApprove === 'NO') {
+        return { 
+          status: 'authorized', 
+          approve_request: data[i][0],
+          pettycash_approve: data[i][3]
+        };
+      } else {
+        return { 
+          status: 'unauthorized', 
+          message: 'คุณไม่มีสิทธิ์เข้าใช้งานระบบนี้' 
+        };
+      }
     }
   }
   return { status: 'not_found' };
@@ -54,10 +69,21 @@ function registerUser(line_uid, displayName, password) {
   const sheet = ss.getSheetByName('Approve_users');
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][1]) === String(password) && data[i][0] !== 'เงินสดย่อยรอตัด') {
+    const approveRequest = String(data[i][0]).trim();
+    const storedProfileOrPass = String(data[i][1]).trim();
+    const pettycashApprove = String(data[i][3] || '').trim().toUpperCase();
+
+    if (storedProfileOrPass === String(password).trim() && approveRequest !== 'เงินสดย่อยรอตัด') {
+      if (pettycashApprove !== 'NO') {
+        throw new Error('บัญชีนี้ไม่มีสิทธิ์เข้าใช้งานระบบนี้');
+      }
       sheet.getRange(i + 1, 3).setValue(line_uid);
       sheet.getRange(i + 1, 2).setValue(displayName);
-      return { success: true, approve_request: data[i][0] };
+      return { 
+        success: true, 
+        approve_request: data[i][0],
+        pettycash_approve: data[i][3]
+      };
     }
   }
   throw new Error('รหัสผ่านไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าถึง');

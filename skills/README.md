@@ -21,15 +21,19 @@
 
 ## สรุปย่อระบบ (Quick Reference)
 
-**ระบบนี้คืออะไร**: LINE LIFF Web App สำหรับอนุมัติบิลเบิกจ่าย
+**ระบบนี้คืออะไร**: LINE LIFF Web App (v2.6) สำหรับการนำเงินสดย่อยมาจ่ายคืนเงินให้ผู้ขอเบิก โดยผู้ถือวงเงินสดย่อยเข้ามากดจ่ายเงิน (Paid) หรือปฏิเสธ (Reject)
 
-**มีกี่ไฟล์ source**: 3 ไฟล์ (code.js, index.html, appsscript.json)
+**มีกี่ไฟล์ source**: `code.js`, `index.html`, `js/app.js`, `js/config.js`, `css/style.css`, `appsscript.json`
 
 **ใช้อะไรเก็บข้อมูล**: Google Sheets (2 sheets: `Approve_users`, `TaxData`)
 
+**สิทธิ์เข้าใช้งาน**: กรองเฉพาะ `Approve_users.pettycash_approve == 'NO'` เท่านั้น
+
+**สถานะที่บันทึก**: `pending` → `Paided` หรือ `Rejected`
+
 **มี API กี่ตัว**: 4 actions (checkUser, register, getPending, updateStatus)
 
-**มีหน้าจอกี่หน้า**: 2 screens (Registration, Approval List) + Loading overlay
+**มีหน้าจอกี่หน้า**: 3 screens (Unauthorized, Registration, Payment List) + Loading overlay
 
 **Frontend อยู่ที่ไหน**: GitHub Pages — `https://pingly69.github.io/smartbill_approve/`
 

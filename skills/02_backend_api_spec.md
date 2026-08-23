@@ -42,9 +42,9 @@
 
 ### 2.1 `checkUser` — ตรวจสอบสิทธิ์ผู้ใช้
 
-**Function**: [`checkUser(line_uid)`](file:///c:/Antigravity_Data/SmartBill_Approve/code.js#L40-L50)
+**Function**: [`checkUser(line_uid)`](file:///c:/Antigravity_Data/SmartBill_Approve/code.js#L40-L60)
 
-**Purpose**: ตรวจว่า LINE UID นี้มีสิทธิ์อนุมัติหรือไม่
+**Purpose**: ตรวจว่า LINE UID นี้มีสิทธิ์ใช้งานระบบจ่ายเงินสดย่อยหรือไม่ (ต้องมี `pettycash_approve === 'NO'`)
 
 **Request**:
 ```json
@@ -57,14 +57,25 @@
 **Logic**:
 1. เปิด Sheet `Approve_users`
 2. วนลูปหาแถวที่ Column C (index 2) === `line_uid` และ Column A (index 0) !== `'เงินสดย่อยรอตัด'`
-3. ถ้าเจอ → return `{ status: 'authorized', approve_request: <Column A value> }`
+3. ตรวจสอบ Column D (index 3) `pettycash_approve`:
+   - ถ้า `pettycash_approve === 'NO'` → return `{ status: 'authorized', approve_request: <Column A>, pettycash_approve: <Column D> }`
+   - ถ้า `pettycash_approve !== 'NO'` (เช่น 'YES') → return `{ status: 'unauthorized', message: 'คุณไม่มีสิทธิ์เข้าใช้งานระบบนี้' }`
 4. ถ้าไม่เจอ (หรือตรงกับแถว 'เงินสดย่อยรอตัด') → return `{ status: 'not_found' }`
 
 **Response (authorized)**:
 ```json
 {
   "status": "authorized",
-  "approve_request": "ชื่อผู้อนุมัติ"
+  "approve_request": "ชื่อผู้อนุมัติ",
+  "pettycash_approve": "NO"
+}
+```
+
+**Response (unauthorized)**:
+```json
+{
+  "status": "unauthorized",
+  "message": "คุณไม่มีสิทธิ์เข้าใช้งานระบบนี้"
 }
 ```
 
@@ -79,9 +90,9 @@
 
 ### 2.2 `register` — ลงทะเบียนผู้อนุมัติ
 
-**Function**: [`registerUser(line_uid, displayName, password)`](file:///c:/Antigravity_Data/SmartBill_Approve/code.js#L52-L64)
+**Function**: [`registerUser(line_uid, displayName, password)`](file:///c:/Antigravity_Data/SmartBill_Approve/code.js#L62-L86)
 
-**Purpose**: ผูก LINE UID กับบัญชีผู้อนุมัติโดยใช้ password
+**Purpose**: ผูก LINE UID กับบัญชีผู้อนุมัติโดยใช้ password (เฉพาะที่ `pettycash_approve === 'NO'`)
 
 **Request**:
 ```json
@@ -97,9 +108,10 @@
 1. เปิด Sheet `Approve_users`
 2. วนลูปหาแถวที่ Column B (index 1) === `password` (เปรียบเทียบเป็น String) และ Column A (index 0) !== `'เงินสดย่อยรอตัด'`
 3. ถ้าเจอ:
+   - ตรวจสอบ Column D (index 3) `pettycash_approve`: หากไม่ใช่ `'NO'` → throw Error "บัญชีนี้ไม่มีสิทธิ์เข้าใช้งานระบบนี้"
    - เขียน `line_uid` ลง Column C (index 2)
    - เขียน `displayName` **ทับ** Column B (index 1) ← **⚠️ password ถูกลบแทนด้วยชื่อ**
-   - return `{ success: true, approve_request: <Column A value> }`
+   - return `{ success: true, approve_request: <Column A>, pettycash_approve: <Column D> }`
 4. ถ้าไม่เจอ (หรือตรงกับแถว 'เงินสดย่อยรอตัด') → throw Error "รหัสผ่านไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าถึง"
 
 > **⚠️ Critical Design Note**: หลังจาก register สำเร็จ password จะถูก overwrite ด้วย displayName
@@ -108,9 +120,9 @@
 
 ---
 
-### 2.3 `getPending` — ดึงรายการรอการอนุมัติ
+### 2.3 `getPending` — ดึงรายการรอการอนุมัติ / จ่ายเงิน
 
-**Function**: [`getPendingData(approve_request)`](file:///c:/Antigravity_Data/SmartBill_Approve/code.js#L67-L110)
+**Function**: [`getPendingData(approve_request)`](file:///c:/Antigravity_Data/SmartBill_Approve/code.js#L88-L131)
 
 **Purpose**: ดึงบิลที่มีสถานะ `pending` สำหรับ approver คนนั้น
 
@@ -165,9 +177,9 @@ const idx = {
 
 ---
 
-### 2.4 `updateStatus` — อนุมัติ/ปฏิเสธรายการ (Batch)
+### 2.4 `updateStatus` — บันทึกสถานะการจ่ายเงิน / ปฏิเสธ (Batch)
 
-**Function**: [`updateBatchStatus(recordIds, line_uid, status)`](file:///c:/Antigravity_Data/SmartBill_Approve/code.js#L122-L137)
+**Function**: [`updateBatchStatus(recordIds, line_uid, status)`](file:///c:/Antigravity_Data/SmartBill_Approve/code.js#L143-L158)
 
 **Purpose**: อัพเดตสถานะบิลหลายรายการพร้อมกัน
 
@@ -177,18 +189,18 @@ const idx = {
   "action": "updateStatus",
   "items": ["REC001", "REC002", "REC003"],
   "line_uid": "U1234567890abcdef...",
-  "status": "Approved"
+  "status": "Paided"
 }
 ```
 
-**Possible Status Values**: `"Approved"` | `"Rejected"`
+**Possible Status Values**: `"Paided"` | `"Rejected"`
 
 **Logic**:
 1. เปิด Sheet `TaxData`
 2. วนลูปทุกแถว
 3. เปรียบเทียบ Column P (index 15) กับ `recordIds` array
 4. ถ้าตรง → เขียน:
-   - Column T (index 19, sheet col 20) ← `status` ("Approved" / "Rejected")
+   - Column T (index 19, sheet col 20) ← `status` ("Paided" / "Rejected")
    - Column R (index 17, sheet col 18) ← `line_uid`
    - Column S (index 18, sheet col 19) ← `new Date()` (timestamp ปัจจุบัน)
 5. Return `true`

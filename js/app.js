@@ -1,5 +1,6 @@
 let userProfile = {};
 let approveRequestName = "";
+let pettycashApprove = "";
 
 async function init() {
     try {
@@ -37,7 +38,13 @@ async function checkAuthorization() {
     const data = await callApi({ action: 'checkUser', line_uid: userProfile.userId });
     if (data && data.status === 'authorized') {
         approveRequestName = data.approve_request;
+        pettycashApprove = data.pettycash_approve || "NO";
         showListScreen();
+    } else if (data && data.status === 'unauthorized') {
+        document.getElementById('unauth-screen').classList.remove('hidden');
+        if (data.message) {
+            document.getElementById('unauth-message').innerText = data.message;
+        }
     } else {
         document.getElementById('reg-screen').classList.remove('hidden');
     }
@@ -54,6 +61,7 @@ async function register() {
     });
     if (data) {
         approveRequestName = data.approve_request;
+        pettycashApprove = data.pettycash_approve || "NO";
         showListScreen();
     }
 }
@@ -136,7 +144,7 @@ async function processApprove(status) {
     const selected = Array.from(document.querySelectorAll('input[name="record"]:checked')).map(el => el.value);
     if (selected.length === 0) return alert("กรุณาเลือกรายการที่ต้องการดำเนินการ");
 
-    const actionLabel = status === 'Approved' ? 'Confirm Approve' : 'Confirm Reject';
+    const actionLabel = status === 'Paided' ? 'Confirm Paid' : 'Confirm Reject';
     if (!confirm(`${actionLabel} สำหรับ ${selected.length} รายการ?`)) return;
 
     const success = await callApi({

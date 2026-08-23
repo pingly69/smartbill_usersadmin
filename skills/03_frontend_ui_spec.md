@@ -7,12 +7,17 @@
 
 ## 1. Page Structure
 
-`index.html` เป็น **Single Page Application (SPA)** ที่มี 3 sections หลัก + 1 overlay:
+`index.html` เป็น **Single Page Application (SPA)** ที่มีหน้าจอหลักและ overlay ดังนี้:
 
 ```
 ┌────────────────────────────┐
 │  Loading Overlay (#loading)│ ← แสดงตอนเรียก API
 │  (spinner + pulse text)    │
+├────────────────────────────┤
+│                            │
+│  Unauthorized Screen       │ ← แสดงถ้า pettycash_approve !== 'NO'
+│  (#unauth-screen)          │
+│                            │
 ├────────────────────────────┤
 │                            │
 │  Registration Screen       │ ← แสดงถ้ายังไม่ register
@@ -37,7 +42,7 @@
 │  │ (#no-data)           │  │
 │  ├──────────────────────┤  │
 │  │ Action Bar (floating)│  │
-│  │ - Reject / Approve   │  │
+│  │ - Reject / Paid      │  │
 │  └──────────────────────┘  │
 └────────────────────────────┘
 ```
@@ -46,7 +51,7 @@
 
 ## 2. Screens Detail
 
-### 2.1 Loading Overlay — [index.html:22-25](file:///c:/Antigravity_Data/SmartBill_Approve/index.html#L22-L25)
+### 2.1 Loading Overlay — [index.html:19-22](file:///c:/Antigravity_Data/SmartBill_Approve/index.html#L19-L22)
 
 | Element | Description |
 |---------|-------------|
@@ -57,7 +62,19 @@
 
 ---
 
-### 2.2 Registration Screen — [index.html:28-44](file:///c:/Antigravity_Data/SmartBill_Approve/index.html#L28-L44)
+### 2.2 Unauthorized Screen — [index.html:24-37](file:///c:/Antigravity_Data/SmartBill_Approve/index.html#L24-L37)
+
+**แสดงเมื่อ**: `checkUser` return `status: 'unauthorized'` (เมื่อผู้ใช้มี `pettycash_approve !== 'NO'`)
+
+| Element | Type | Description |
+|---------|------|-------------|
+| Icon | SVG warning | วงกลมสีเหลืองอำพัน + ไอคอนเครื่องหมายตกใจ |
+| Title | Text | "ไม่มีสิทธิ์เข้าใช้งาน" |
+| Message | Text | "คุณไม่มีสิทธิ์เข้าใช้งานระบบนี้ (สำหรับผู้ถือวงเงินสดย่อยเท่านั้น)" |
+
+---
+
+### 2.3 Registration Screen — [index.html:39-55](file:///c:/Antigravity_Data/SmartBill_Approve/index.html#L39-L55)
 
 **แสดงเมื่อ**: `checkUser` return `status: 'not_found'`
 
@@ -72,24 +89,24 @@
 **User Flow**:
 1. ผู้ใช้กรอกรหัสผ่าน
 2. กด "ยืนยันตัวตน"
-3. เรียก `register()` → API `register` action
+3. เรียก `register()` → API `register` action (ตรวจสอบสิทธิ์ `pettycash_approve === 'NO'`)
 4. สำเร็จ → ซ่อน reg-screen, แสดง list-screen, เรียก `loadData()`
 5. ล้มเหลว → alert error message
 
 ---
 
-### 2.3 List Screen — [index.html:47-81](file:///c:/Antigravity_Data/SmartBill_Approve/index.html#L47-L81)
+### 2.4 List Screen — [index.html:57-99](file:///c:/Antigravity_Data/SmartBill_Approve/index.html#L57-L99)
 
 **แสดงเมื่อ**: `checkUser` return `status: 'authorized'` หรือ register สำเร็จ
 
 #### Header (Sticky)
 | Element | Description |
 |---------|-------------|
-| Title | "ขอเบิก Bill" (`font-black text-xl text-indigo-900`) |
+| Title | "SmartBill Approve v2.6" (`font-black text-xl text-indigo-900`) |
 | User info | แสดง `LINE UID: <uid>` ขนาด 10px |
 | Refresh button | SVG refresh icon, กด → `loadData()` |
 
-#### Bill Card Template — [index.html:176-211](file:///c:/Antigravity_Data/SmartBill_Approve/index.html#L176-L211)
+#### Bill Card Template
 
 แต่ละ card ประกอบด้วย 3 ส่วน:
 
@@ -123,19 +140,19 @@
 - Custom checkbox styling (peer-checked)
 - Value = `recordId`
 
-#### No Data Message — [index.html:62-68](file:///c:/Antigravity_Data/SmartBill_Approve/index.html#L62-L68)
+#### No Data Message — [index.html:77-85](file:///c:/Antigravity_Data/SmartBill_Approve/index.html#L77-L85)
 - แสดงเมื่อไม่มี pending items
 - ไอคอนวงกลมเขียว + check mark
-- "จัดการเรียบร้อยแล้ว!" / "ไม่มีรายการที่ต้องอนุมัติในขณะนี้"
+- "จัดการเรียบร้อยแล้ว!" / "ไม่มีรายการที่ต้องจ่ายเงินในขณะนี้"
 
-#### Floating Action Bar — [index.html:71-80](file:///c:/Antigravity_Data/SmartBill_Approve/index.html#L71-L80)
+#### Floating Action Bar — [index.html:87-98](file:///c:/Antigravity_Data/SmartBill_Approve/index.html#L87-L98)
 - ตำแหน่ง: `fixed bottom-6`, glassmorphism style
 - ปุ่ม 2 ปุ่มเรียงกัน:
 
 | Button | Style | Action |
 |--------|-------|--------|
 | **Reject** | White bg, red border+text | `processApprove('Rejected')` |
-| **Approve** | Indigo bg, white text, shadow | `processApprove('Approved')` |
+| **Paid** | Indigo bg, white text, shadow | `processApprove('Paided')` |
 
 - ซ่อนเมื่อไม่มีข้อมูล, แสดงเมื่อมีข้อมูล
 

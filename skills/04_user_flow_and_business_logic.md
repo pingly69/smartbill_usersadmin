@@ -17,7 +17,7 @@
 ┌──────────────────┐     ┌──────────────────┐
 │  LIFF Init       │────▶│  Not Logged In?  │
 │  liffId:         │     │  → liff.login()  │
-│  2009018471-...  │     │  → redirect back │
+│  2009016720-...  │     │  → redirect back │
 └────────┬─────────┘     └──────────────────┘
          │ logged in
          ▼
@@ -33,28 +33,36 @@
 │  API call        │
 └────────┬─────────┘
          │
-    ┌────┴────┐
-    │         │
-    ▼         ▼
- authorized  not_found
-    │         │
-    │         ▼
-    │    ┌──────────────────┐
-    │    │  Registration    │
-    │    │  Screen          │
-    │    │  → input password│
-    │    └────────┬─────────┘
-    │             │
-    │             ▼
-    │    ┌──────────────────┐
-    │    │  register()      │
-    │    │  → match password│
-    │    │  → save UID      │
-    │    │  → save name     │
-    │    └────────┬─────────┘
-    │             │ success
-    │             │
-    ▼             ▼
+    ┌────┼──────────────┐
+    │    │              │
+    ▼    ▼              ▼
+authorized unauthorized not_found
+    │    │              │
+    │    │              ▼
+    │    │     ┌──────────────────┐
+    │    │     │  Registration    │
+    │    │     │  Screen          │
+    │    │     │  → input password│
+    │    │     └────────┬─────────┘
+    │    │              │
+    │    │              ▼
+    │    │     ┌──────────────────┐
+    │    │     │  register()      │
+    │    │     │  → match password│
+    │    │     │  → check         │
+    │    │     │    pettycash='NO'│
+    │    │     │  → save UID      │
+    │    │     │  → save name     │
+    │    │     └────────┬─────────┘
+    │    │              │ success
+    │    ▼              │
+    │  ┌──────────────┐ │
+    │  │ Unauthorized │ │
+    │  │ Screen       │ │
+    │  │ (pettycash   │ │
+    │  │  approve!=NO)│ │
+    │  └──────────────┘ │
+    ▼                   ▼
 ┌──────────────────────────┐
 │  showListScreen()        │
 │  → show #list-screen     │
@@ -94,12 +102,12 @@
     ┌────────┴────────┐
     │                 │
     ▼                 ▼
- Approve          Reject
+  Paid             Reject
     │                 │
     ▼                 ▼
 ┌──────────────────────────┐
 │  confirm dialog          │
-│  "Confirm Approve/Reject │
+│  "Confirm Paid/Reject    │
 │   สำหรับ N รายการ?"      │
 └────────────┬─────────────┘
              │ OK
@@ -107,9 +115,9 @@
 ┌──────────────────────────┐
 │  updateStatus API        │
 │  → items: [recordIds]    │
-│  → status: Approved/     │
+│  → status: Paided/       │
 │    Rejected              │
-│  → line_uid: approver    │
+│  → line_uid: user UID    │
 │  → writes:               │
 │    - status column       │
 │    - approver UID        │
@@ -120,7 +128,7 @@
 ┌──────────────────────────┐
 │  loadData() again        │
 │  → refresh list          │
-│  (approved items no      │
+│  (paid items no          │
 │   longer appear)         │
 └──────────────────────────┘
 ```
@@ -134,6 +142,7 @@
 | Rule | Description |
 |------|-------------|
 | LINE Login Required | ต้อง login ผ่าน LINE ก่อนเข้าใช้งาน (LIFF enforces) |
+| Role Restriction | **เฉพาะผู้ที่มี `pettycash_approve == 'NO'` ใน `Approve_users` เท่านั้น** ที่เข้าใช้งานได้ |
 | One-Time Registration | ใช้ password matching เพื่อจับคู่ LINE UID กับ approver slot |
 | Password Overwrite | หลัง register สำเร็จ, password ถูกแทนที่ด้วย displayName |
 | Re-registration | ไม่สามารถ re-register ได้ (password ถูก overwrite แล้ว) |
@@ -146,16 +155,17 @@
 | Filtered by Approver | แต่ละ approver เห็นเฉพาะบิลที่ assign ให้ตัวเอง (`reqBy === approve_request`) |
 | Status Filter | แสดงเฉพาะ status = `pending` |
 | Page Limit | แสดงสูงสุด 5 รายการต่อครั้ง |
-| No Pagination | ไม่มีปุ่ม next page, ต้อง approve ชุดปัจจุบันก่อนจึงจะเห็นชุดถัดไป |
+| No Pagination | ไม่มีปุ่ม next page, ต้อง paid/reject ชุดปัจจุบันก่อนจึงจะเห็นชุดถัดไป |
 
-### 2.3 Approval Process
+### 2.3 Payment / Approval Process
 
 | Rule | Description |
 |------|-------------|
-| Batch Operation | เลือกหลายรายการแล้ว approve/reject พร้อมกัน |
-| Confirmation Required | แสดง confirm dialog ก่อนดำเนินการทุกครั้ง |
-| Status Values | `pending` → `Approved` หรือ `Rejected` |
-| Audit Trail | บันทึก: สถานะ, LINE UID ผู้อนุมัติ, timestamp |
+| Meaning of Action | เป็นการนำเงินสดย่อยมาจ่ายคืนเงินให้ผู้ขอเบิก โดยผู้ถือวงเงินสดย่อยเข้ามากด Paid หรือ Reject |
+| Batch Operation | เลือกหลายรายการแล้ว Paid/Reject พร้อมกัน |
+| Confirmation Required | แสดง confirm dialog ก่อนดำเนินการทุกครั้ง (`Confirm Paid` / `Confirm Reject`) |
+| Status Values | `pending` → `Paided` หรือ `Rejected` |
+| Audit Trail | บันทึก: สถานะ (`Paided`/`Rejected`), LINE UID ผู้ดำเนินการ, timestamp |
 | Irreversible | ไม่มีฟีเจอร์ undo หรือกลับสถานะ |
 
 ### 2.4 Image Access
@@ -179,9 +189,9 @@
                ┌──────────────┼──────────────┐
                │                             │
                ▼                             ▼
-        ┌────────────┐                ┌────────────┐
-        │  Approved  │                │  Rejected  │
-        └────────────┘                └────────────┘
+         ┌────────────┐                ┌────────────┐
+         │   Paided   │                │  Rejected  │
+         └────────────┘                └────────────┘
 ```
 
 **สถานะเป็น one-way** — ไม่สามารถกลับไป pending ได้จากระบบนี้
@@ -196,13 +206,13 @@
                                                    │ reqBy = "approver_name"
                                                    │
                                                    ▼
-                                            [SmartBill Approve]
+                                            [SmartBill Approve v2.6]
                                                    │
-                                              Approve/Reject
+                                               Paid/Reject
                                                    │
                                                    ▼
                                             [Google Sheets: TaxData]
-                                                   │ status = "Approved"/"Rejected"
+                                                   │ status = "Paided"/"Rejected"
                                                    │ line_uid = approver UID
                                                    │ timestamp = now
                                                    │

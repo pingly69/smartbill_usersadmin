@@ -8,12 +8,12 @@
 
 ## 1. สรุปภาพรวม (Executive Summary)
 
-**SmartBill Approve** คือ LINE LIFF Web Application สำหรับ**อนุมัติใบเบิกจ่าย (Bill Disbursement Approval)** ที่ทำงานอยู่ภายใน LINE Messaging App
+**SmartBill Approve (v2.6)** คือ LINE LIFF Web Application สำหรับ**การนำเงินสดย่อยมาจ่ายคืนเงินให้ผู้ขอเบิก (Petty Cash Disbursement & Payment)** โดยผู้ถือวงเงินสดย่อยจะเข้ามากดจ่ายเงิน (Paid) หรือปฏิเสธ (Reject)
 
-ระบบนี้ออกแบบมาให้ผู้มีอำนาจอนุมัติ (Approver) สามารถ:
-- ดูรายการบิลที่รอการอนุมัติ พร้อมรูปภาพหลักฐาน
+ระบบนี้ออกแบบมาให้ผู้ถือวงเงินสดย่อย (Disburser/Approver) สามารถ:
+- ดูรายการบิลที่รอการจ่ายเงิน พร้อมรูปภาพหลักฐาน
 - เลือกรายการแบบ batch (หลายรายการพร้อมกัน)
-- กดอนุมัติ (Approve) หรือปฏิเสธ (Reject)
+- กดจ่ายเงิน (Paid) หรือปฏิเสธ (Reject)
 
 โดยข้อมูลทั้งหมดถูกจัดเก็บใน **Google Sheets** และ backend เป็น **Google Apps Script (GAS) Web App**
 
@@ -24,12 +24,12 @@
 | Layer | Technology | Detail |
 |-------|-----------|--------|
 | **Frontend Hosting** | GitHub Pages | URL: `https://pingly69.github.io/smartbill_approve/` |
-| **Frontend** | HTML + TailwindCSS CDN + Vanilla JS | Single-page app ใน `index.html` |
+| **Frontend** | HTML + TailwindCSS CDN + Vanilla JS | Single-page app ใน `index.html` (v2.6) |
 | **Frontend SDK** | LINE LIFF SDK v2 | LIFF ID: `2009016720-Wih8NJa6` |
 | **Backend** | Google Apps Script (GAS) | Deploy เป็น Web App (doPost) |
 | **Database** | Google Sheets | Sheet ID: `1amztKC_QEVv9H7u6ubGCJYEHCHo0NWnJhT6ksNQCpnA` |
 | **File Storage** | Google Drive | เก็บรูปภาพบิล, ตั้ง auto-permission |
-| **Authentication** | LINE Login (via LIFF) + Password-based Registration | ระบุตัวตนด้วย LINE UID + รหัสผ่าน |
+| **Authentication** | LINE Login (via LIFF) + Password Registration + Role Filter | สิทธิ์เฉพาะ `pettycash_approve == 'NO'` |
 | **Backend Deployment** | GAS Web App | Execute as: USER_DEPLOYING, Access: ANYONE_ANONYMOUS |
 
 > **⚠️ สาเหตุที่แยก Frontend ออกจาก GAS**: LINE LIFF มีข้อจำกัดในการโหลด Web App ที่ serve จาก GAS 
@@ -45,14 +45,14 @@
 │     LINE App (Mobile)       │
 │  ┌───────────────────────┐  │
 │  │   LIFF Web App        │  │
-│  │   (index.html)        │  │
+│  │   (index.html v2.6)   │  │
 │  │                       │  │
 │  │  ┌─────────────────┐  │  │
 │  │  │ Registration    │  │  │
 │  │  │ Screen          │  │  │
 │  │  └─────────────────┘  │  │
 │  │  ┌─────────────────┐  │  │
-│  │  │ Approval List   │  │  │
+│  │  │ Payment List    │  │  │
 │  │  │ Screen          │  │  │
 │  │  └─────────────────┘  │  │
 │  └───────┬───────────────┘  │
@@ -69,10 +69,10 @@
 │  Backend API Only           │
 │                             │
 │  Actions:                   │
-│  ├─ checkUser               │
-│  ├─ register                │
+│  ├─ checkUser               │ (เช็ค pettycash_approve === 'NO')
+│  ├─ register                │ (เช็ค pettycash_approve === 'NO')
 │  ├─ getPending              │
-│  └─ updateStatus            │
+│  └─ updateStatus            │ (สถานะ Paided / Rejected)
 │          │                  │
 └──────────┼──────────────────┘
            │
@@ -95,16 +95,17 @@ Key: Frontend ≠ Backend server
 ## 4. Google Sheets Structure
 
 ### Sheet: `Approve_users`
-ตาราง User ผู้มีสิทธิ์อนุมัติ
+ตาราง User ผู้มีสิทธิ์อนุมัติ / จ่ายเงินสดย่อย
 
 | Column | Index | Field | Description |
 |--------|-------|-------|-------------|
-| A | 0 | `approve_request` | ชื่อ/รหัสสำหรับกรอง request ที่ต้องอนุมัติ |
-| B | 1 | `password` / `displayName` | เก็บ password ก่อน register, ถูกแทนที่ด้วย displayName หลัง register |
+| A | 0 | `approve_request` | ชื่อ/รหัสสำหรับกรอง request ที่ต้องจ่ายเงิน |
+| B | 1 | `line_profile` | เก็บ password ก่อน register, ถูกแทนที่ด้วย displayName หลัง register |
 | C | 2 | `line_uid` | LINE User ID (เขียนเมื่อ register สำเร็จ) |
+| D | 3 | `pettycash_approve` | สิทธิ์การเข้าใช้งาน: `NO` = เข้าใช้งานระบบนี้ได้ (ผู้ถือวงเงินสดย่อย), `YES` = ไม่มีสิทธิ์ใช้งานระบบนี้ |
 
 ### Sheet: `TaxData`
-ตารางบิลที่ต้องอนุมัติ
+ตารางบิลที่ต้องดำเนินการ
 
 | Column | Index | Field | Description |
 |--------|-------|-------|-------------|
@@ -114,11 +115,13 @@ Key: Frontend ≠ Backend server
 | K | 10 | `remark` | หมายเหตุ |
 | L | 11 | `pic` | URL รูปภาพบิล (Google Drive link) |
 | N | 13 | `reqName` | ชื่อผู้ขอเบิก |
-| P | 15 | `recordId` | รหัสบันทึก (ใช้อ้างอิงในการ approve/reject) |
-| Q | 16 | `reqBy` | ชื่อ Approver ที่ต้องอนุมัติ (match กับ approve_request) |
-| R | 17 | `approver_uid` | LINE UID ของผู้อนุมัติ (เขียนเมื่อ approve/reject) |
-| S | 18 | `approved_at` | วันเวลาที่อนุมัติ/ปฏิเสธ |
-| T | 19 | `status` | สถานะ: `pending` / `Approved` / `Rejected` |
+| P | 15 | `recordId` | รหัสบันทึก (ใช้อ้างอิงในการ paid/reject) |
+| Q | 16 | `reqBy` | ชื่อ ผู้จ่าย/Approver (match กับ approve_request) |
+| R | 17 | `approver_uid` | LINE UID ของผู้ดำเนินการ (เขียนเมื่อ Paid/Reject) |
+| S | 18 | `approved_at` | วันเวลาที่ดำเนินการจ่ายเงิน/ปฏิเสธ |
+| T | 19 | `status` | สถานะ: `pending` / `Paided` / `Rejected` |
+
+> **หมายเหตุ**: Column index เป็น 0-based ตาม code
 
 > **หมายเหตุ**: Column index เป็น 0-based ตาม code
 
