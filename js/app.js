@@ -194,37 +194,39 @@ async function processApprove(status) {
 
     if (success) {
         if (status === 'Paided' && selectedItemObjs.length > 0) {
-            sendPaidSummaryToChat(selectedItemObjs).catch(() => {});
+            try {
+                await sendPaidSummaryToChat(selectedItemObjs);
+            } catch (e) {
+                console.warn("sendPaidSummary error:", e);
+            }
         }
         loadData();
     }
 }
 
 async function sendPaidSummaryToChat(items) {
-    if (!liff.isInClient() || !liff.isApiAvailable('sendMessages')) {
+    if (!liff.isInClient()) {
         return;
     }
 
     try {
         let totalAmount = 0;
         const msgLines = [
-            "💸 บันทึกการจ่ายเงินสดย่อยสำเร็จ",
+            `💸 จ่ายเงินสดย่อยแล้ว (${items.length} รายการ)`,
             "-------------------------"
         ];
 
         items.forEach((it, idx) => {
             const net = parseFloat(it.net) || 0;
             totalAmount += net;
-            msgLines.push(`${idx + 1}. ผู้ขอ: ${it.reqName || '-'}`);
-            msgLines.push(`   โครงการ: ${it.project || '-'}`);
-            msgLines.push(`   ยอดเงิน: ฿${net.toLocaleString()}`);
-            if (it.remark && it.remark !== '-') {
-                msgLines.push(`   หมายเหตุ: ${it.remark}`);
-            }
+            const name = it.reqName || '-';
+            const amount = `฿${net.toLocaleString()}`;
+            const remark = it.remark && it.remark !== '-' ? ` (${it.remark})` : '';
+            msgLines.push(`${idx + 1}. ${name} : ${amount}${remark}`);
         });
 
         msgLines.push("-------------------------");
-        msgLines.push(`รวมจ่ายรอบนี้ (${items.length} รายการ): ฿${totalAmount.toLocaleString()}`);
+        msgLines.push(`💰 รวมทั้งสิ้น: ฿${totalAmount.toLocaleString()}`);
         const now = new Date();
         const timeStr = `${now.toLocaleDateString('th-TH')} ${now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
         msgLines.push(`⏰ ${timeStr}`);
@@ -234,7 +236,7 @@ async function sendPaidSummaryToChat(items) {
             text: msgLines.join('\n')
         }]);
     } catch (err) {
-        console.warn("liff.sendMessages:", err);
+        console.warn("liff.sendMessages error:", err);
     }
 }
 
