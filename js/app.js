@@ -1,6 +1,7 @@
 let userProfile = {};
 let approveRequestName = "";
 let pettycashApprove = "";
+let currentPendingItems = [];
 
 async function init() {
     try {
@@ -77,6 +78,7 @@ async function loadData() {
     const items = await callApi({ action: 'getPending', approve_request: approveRequestName });
     const container = document.getElementById('data-container');
     container.innerHTML = "";
+    currentPendingItems = items || [];
 
     if (!items || items.length === 0) {
         document.getElementById('no-data').classList.remove('hidden');
@@ -99,15 +101,20 @@ async function loadData() {
 
         const card = `
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                <div class="p-5 border-b border-gray-50 bg-indigo-50/30 flex justify-between items-center">
-                    <div class="flex-1 pr-4">
-                        <span class="text-[10px] font-bold text-indigo-500 uppercase block mb-0.5 tracking-wider">PROJECT</span>
-                        <h3 class="font-bold text-gray-900 truncate leading-tight">${item.project || 'ไม่มีชื่อโครงการ'}</h3>
-                        <p class="text-xs text-gray-500 font-medium mt-1">ผู้ขอ: ${item.reqName}</p>
+                <div class="p-5 border-b border-gray-50 bg-indigo-50/30 flex justify-between items-start">
+                    <div class="flex-1 pr-4 space-y-1.5">
+                        <div>
+                            <span class="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block">ผู้ขอเบิกเงิน</span>
+                            <h3 class="font-bold text-base text-gray-900 leading-tight">${item.reqName || '-'}</h3>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">โครงการ</span>
+                            <p class="text-sm font-semibold text-gray-700 truncate leading-tight">${item.project || 'ไม่มีชื่อโครงการ'}</p>
+                        </div>
                     </div>
-                    <div class="text-right">
-                        <p class="text-lg font-black text-indigo-600 leading-none">฿${parseFloat(item.net).toLocaleString()}</p>
-                        <p class="text-[10px] text-gray-400 mt-1">${item.docDate}</p>
+                    <div class="text-right flex-shrink-0">
+                        <p class="text-xl font-black text-indigo-600 leading-none">฿${parseFloat(item.net).toLocaleString()}</p>
+                        <p class="text-[11px] text-gray-400 mt-1.5 font-medium">${item.docDate}</p>
                     </div>
                 </div>
                 
@@ -147,6 +154,9 @@ async function processApprove(status) {
     const actionLabel = status === 'Paided' ? 'Confirm Paid' : 'Confirm Reject';
     if (!confirm(`${actionLabel} สำหรับ ${selected.length} รายการ?`)) return;
 
+    // Get selected item objects before calling API
+    const selectedItemObjs = currentPendingItems.filter(item => selected.includes(String(item.recordId)));
+
     const success = await callApi({
         action: 'updateStatus',
         items: selected,
@@ -155,7 +165,49 @@ async function processApprove(status) {
     });
 
     if (success) {
+        if (status === 'Paided' && selectedItemObjs.length > 0) {
+            await sendPaidSummaryToChat(selectedItemObjs);
+        }
         loadData();
+    }
+}
+
+async function sendPaidSummaryToChat(items) {
+    if (!liff.isInClient()) {
+        console.log("Not running inside LINE client, skip liff.sendMessages");
+        return;
+    }
+
+    try {
+        let totalAmount = 0;
+        const msgLines = [
+            "💸 บันทึกการจ่ายเงินสดย่อยสำเร็จ",
+            "-------------------------"
+        ];
+
+        items.forEach((it, idx) => {
+            const net = parseFloat(it.net) || 0;
+            totalAmount += net;
+            msgLines.push(`${idx + 1}. ผู้ขอ: ${it.reqName || '-'}`);
+            msgLines.push(`   โครงการ: ${it.project || '-'}`);
+            msgLines.push(`   ยอดเงิน: ฿${net.toLocaleString()}`);
+            if (it.remark && it.remark !== '-') {
+                msgLines.push(`   หมายเหตุ: ${it.remark}`);
+            }
+        });
+
+        msgLines.push("-------------------------");
+        msgLines.push(`รวมจ่ายรอบนี้ (${items.length} รายการ): ฿${totalAmount.toLocaleString()}`);
+        const now = new Date();
+        const timeStr = `${now.toLocaleDateString('th-TH')} ${now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
+        msgLines.push(`⏰ ${timeStr}`);
+
+        await liff.sendMessages([{
+            type: 'text',
+            text: msgLines.join('\n')
+        }]);
+    } catch (err) {
+        console.warn("liff.sendMessages could not send:", err);
     }
 }
 

@@ -166,6 +166,7 @@ authorized unauthorized not_found
 | Confirmation Required | แสดง confirm dialog ก่อนดำเนินการทุกครั้ง (`Confirm Paid` / `Confirm Reject`) |
 | Status Values | `pending` → `Paided` หรือ `Rejected` |
 | Audit Trail | บันทึก: สถานะ (`Paided`/`Rejected`), LINE UID ผู้ดำเนินการ, timestamp |
+| Chat Summary Log | **เมื่อกด Paid สำเร็จ**: LIFF จะส่งข้อความสรุปรายการที่จ่ายคืนเข้าห้องแชท LINE ของผู้ใช้ทันที (`liff.sendMessages`) เพื่อให้มีหลักฐานตรวจสอบย้อนหลังในแชท (ฟรี ไม่เสียโควตา LINE OA) |
 | Irreversible | ไม่มีฟีเจอร์ undo หรือกลับสถานะ |
 
 ### 2.4 Image Access
