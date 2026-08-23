@@ -74,6 +74,30 @@ function showListScreen() {
     loadData();
 }
 
+function formatDateDisplay(dateVal) {
+    if (!dateVal) return '-';
+    const str = String(dateVal).trim();
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+        return str;
+    }
+    if (str.includes('T')) {
+        const parts = str.split('T')[0].split('-');
+        if (parts.length === 3) {
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+    }
+    try {
+        const d = new Date(str);
+        if (!isNaN(d.getTime())) {
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+    } catch (e) {}
+    return str.substring(0, 10);
+}
+
 async function loadData() {
     const items = await callApi({ action: 'getPending', approve_request: approveRequestName });
     const container = document.getElementById('data-container');
@@ -98,27 +122,30 @@ async function loadData() {
         }
 
         const thumbUrl = fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w400` : "";
+        const formattedDate = formatDateDisplay(item.docDate);
 
         const card = `
             <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden w-full">
-                <div class="p-5 border-b border-gray-50 bg-indigo-50/30 flex justify-between items-start gap-3">
-                    <div class="flex-1 min-w-0 space-y-1.5">
-                        <div>
-                            <span class="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block">ผู้ขอเบิกเงิน</span>
+                <!-- Header: Requester & Price + Full-width Project -->
+                <div class="p-4 sm:p-5 border-b border-gray-50 bg-indigo-50/40">
+                    <div class="flex justify-between items-start gap-2">
+                        <div class="flex-1 min-w-0 pr-2">
+                            <span class="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block mb-0.5">ผู้ขอเบิกเงิน</span>
                             <h3 class="font-bold text-base text-gray-900 leading-snug break-words">${item.reqName || '-'}</h3>
                         </div>
-                        <div>
-                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">โครงการ</span>
-                            <p class="text-sm font-semibold text-gray-700 leading-snug break-words">${item.project || 'ไม่มีชื่อโครงการ'}</p>
+                        <div class="text-right flex-shrink-0 pl-2">
+                            <p class="text-xl font-black text-indigo-600 leading-none">฿${parseFloat(item.net || 0).toLocaleString()}</p>
+                            <p class="text-[11px] text-gray-400 mt-1 font-medium">${formattedDate}</p>
                         </div>
                     </div>
-                    <div class="text-right flex-shrink-0 whitespace-nowrap pl-2">
-                        <p class="text-xl font-black text-indigo-600 leading-none">฿${parseFloat(item.net).toLocaleString()}</p>
-                        <p class="text-[11px] text-gray-400 mt-1.5 font-medium">${item.docDate}</p>
+                    <div class="mt-2.5 pt-2 border-t border-indigo-100/60 flex items-start gap-1.5">
+                        <span class="text-xs font-semibold text-gray-400 flex-shrink-0">โครงการ:</span>
+                        <p class="text-sm font-semibold text-gray-700 leading-snug break-words flex-1 min-w-0">${item.project || 'ไม่มีชื่อโครงการ'}</p>
                     </div>
                 </div>
                 
-                <div class="p-5 flex gap-4 items-start">
+                <!-- Body: Image & Remark -->
+                <div class="p-4 sm:p-5 flex gap-4 items-start">
                     <div class="w-24 h-24 sm:w-28 sm:h-28 bg-gray-100 rounded-2xl flex-shrink-0 overflow-hidden shadow-inner cursor-pointer img-container relative group" onclick="window.open('${item.pic}', '_blank')">
                         <img src="${thumbUrl}" class="w-full h-full object-cover" 
                              onerror="this.src='https://placehold.co/400x400/e2e8f0/64748b?text=VIEW+BILL'">
@@ -132,7 +159,8 @@ async function loadData() {
                     </div>
                 </div>
 
-                <label class="px-5 py-4 bg-gray-50 flex items-center justify-between cursor-pointer border-t border-gray-100 group">
+                <!-- Footer: Checkbox -->
+                <label class="px-4 sm:px-5 py-3.5 bg-gray-50 flex items-center justify-between cursor-pointer border-t border-gray-100 group">
                     <span class="text-sm font-bold text-gray-400 group-has-[:checked]:text-indigo-600 transition">เลือกรายการนี้</span>
                     <div class="relative">
                         <input type="checkbox" name="record" value="${item.recordId}" class="peer sr-only">

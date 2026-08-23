@@ -120,11 +120,24 @@ function getPendingData(approve_request) {
       }
       // -------------------------------------------
 
+      let formattedDocDate = '';
+      if (row[idx.docDate] instanceof Date) {
+        formattedDocDate = Utilities.formatDate(row[idx.docDate], "GMT+7", "dd/MM/yyyy");
+      } else if (row[idx.docDate]) {
+        const rawDateStr = String(row[idx.docDate]).trim();
+        if (rawDateStr.includes('T')) {
+          const d = new Date(rawDateStr);
+          formattedDocDate = !isNaN(d.getTime()) ? Utilities.formatDate(d, "GMT+7", "dd/MM/yyyy") : rawDateStr.split('T')[0];
+        } else {
+          formattedDocDate = rawDateStr;
+        }
+      }
+
       pendingList.push({
         project: row[idx.project],
         reqName: row[idx.reqName],
         pic: picUrl,
-        docDate: row[idx.docDate] instanceof Date ? Utilities.formatDate(row[idx.docDate], "GMT+7", "dd/MM/yyyy") : row[idx.docDate],
+        docDate: formattedDocDate,
         net: row[idx.net],
         remark: row[idx.remark],
         recordId: row[idx.recordId]
