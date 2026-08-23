@@ -100,35 +100,35 @@ async function loadData() {
         const thumbUrl = fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w400` : "";
 
         const card = `
-            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                <div class="p-5 border-b border-gray-50 bg-indigo-50/30 flex justify-between items-start">
-                    <div class="flex-1 pr-4 space-y-1.5">
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden w-full">
+                <div class="p-5 border-b border-gray-50 bg-indigo-50/30 flex justify-between items-start gap-3">
+                    <div class="flex-1 min-w-0 space-y-1.5">
                         <div>
                             <span class="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block">ผู้ขอเบิกเงิน</span>
-                            <h3 class="font-bold text-base text-gray-900 leading-tight">${item.reqName || '-'}</h3>
+                            <h3 class="font-bold text-base text-gray-900 leading-snug break-words">${item.reqName || '-'}</h3>
                         </div>
                         <div>
                             <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">โครงการ</span>
-                            <p class="text-sm font-semibold text-gray-700 truncate leading-tight">${item.project || 'ไม่มีชื่อโครงการ'}</p>
+                            <p class="text-sm font-semibold text-gray-700 leading-snug break-words">${item.project || 'ไม่มีชื่อโครงการ'}</p>
                         </div>
                     </div>
-                    <div class="text-right flex-shrink-0">
+                    <div class="text-right flex-shrink-0 whitespace-nowrap pl-2">
                         <p class="text-xl font-black text-indigo-600 leading-none">฿${parseFloat(item.net).toLocaleString()}</p>
                         <p class="text-[11px] text-gray-400 mt-1.5 font-medium">${item.docDate}</p>
                     </div>
                 </div>
                 
-                <div class="p-5 flex gap-5 items-start">
-                    <div class="w-28 h-28 bg-gray-100 rounded-2xl flex-shrink-0 overflow-hidden shadow-inner cursor-pointer img-container relative group" onclick="window.open('${item.pic}', '_blank')">
+                <div class="p-5 flex gap-4 items-start">
+                    <div class="w-24 h-24 sm:w-28 sm:h-28 bg-gray-100 rounded-2xl flex-shrink-0 overflow-hidden shadow-inner cursor-pointer img-container relative group" onclick="window.open('${item.pic}', '_blank')">
                         <img src="${thumbUrl}" class="w-full h-full object-cover" 
                              onerror="this.src='https://placehold.co/400x400/e2e8f0/64748b?text=VIEW+BILL'">
                         <div class="absolute inset-0 bg-black/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                             <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                         </div>
                     </div>
-                    <div class="flex-1">
-                        <span class="text-[10px] font-bold text-gray-300 uppercase block mb-1">REMARK / หมายเหตุ</span>
-                        <p class="text-sm text-gray-600 line-clamp-3">${item.remark || '-'}</p>
+                    <div class="flex-1 min-w-0">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase block mb-1">REMARK / หมายเหตุ</span>
+                        <p class="text-sm text-gray-600 break-words line-clamp-3">${item.remark || '-'}</p>
                     </div>
                 </div>
 
@@ -166,15 +166,14 @@ async function processApprove(status) {
 
     if (success) {
         if (status === 'Paided' && selectedItemObjs.length > 0) {
-            await sendPaidSummaryToChat(selectedItemObjs);
+            sendPaidSummaryToChat(selectedItemObjs).catch(() => {});
         }
         loadData();
     }
 }
 
 async function sendPaidSummaryToChat(items) {
-    if (!liff.isInClient()) {
-        console.log("Not running inside LINE client, skip liff.sendMessages");
+    if (!liff.isInClient() || !liff.isApiAvailable('sendMessages')) {
         return;
     }
 
@@ -207,7 +206,7 @@ async function sendPaidSummaryToChat(items) {
             text: msgLines.join('\n')
         }]);
     } catch (err) {
-        console.warn("liff.sendMessages could not send:", err);
+        console.warn("liff.sendMessages:", err);
     }
 }
 
