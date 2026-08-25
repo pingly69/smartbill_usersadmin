@@ -155,15 +155,19 @@ def push():
         d_res = urllib.request.urlopen(d_req)
         d_data = json.loads(d_res.read())
 
+        deployed_count = 0
         for dep in d_data.get('deployments', []):
             dep_id = dep.get('deploymentId')
+            # Skip @HEAD default deployment which cannot be updated
+            if dep.get('updateTime') == '1970-01-01T00:00:00Z':
+                continue
             # Update web app deployment
             upd_url = f'https://script.googleapis.com/v1/projects/{script_id}/deployments/{dep_id}'
             upd_payload = {
                 'deploymentConfig': {
-                    'scriptId': script_id,
                     'versionNumber': new_version,
-                    'manifestFileName': 'appsscript'
+                    'manifestFileName': 'appsscript',
+                    'description': f'Auto deploy version {new_version}'
                 }
             }
             upd_req = urllib.request.Request(upd_url, data=json.dumps(upd_payload).encode('utf-8'), method='PUT')
@@ -172,8 +176,27 @@ def push():
             try:
                 urllib.request.urlopen(upd_req)
                 print(f"  [DEPLOY] Updated Deployment {dep_id} to Version #{new_version}")
+                deployed_count += 1
             except Exception as ex:
-                pass
+                print(f"  [DEPLOY-WARN] Failed to update {dep_id}: {ex}")
+
+        if deployed_count == 0:
+            # Create a new versioned deployment if none exists
+            c_url = f'https://script.googleapis.com/v1/projects/{script_id}/deployments'
+            c_payload = {
+                'versionNumber': new_version,
+                'manifestFileName': 'appsscript',
+                'description': f'Web App Deployment v{new_version}'
+            }
+            c_req = urllib.request.Request(c_url, data=json.dumps(c_payload).encode('utf-8'), method='POST')
+            c_req.add_header('Authorization', f'Bearer {access_token}')
+            c_req.add_header('Content-Type', 'application/json')
+            try:
+                c_res = urllib.request.urlopen(c_req)
+                c_data = json.loads(c_res.read())
+                print(f"  [DEPLOY] Created new Deployment {c_data.get('deploymentId')} for Version #{new_version}")
+            except Exception as ex:
+                print(f"  [DEPLOY-WARN] Failed to create deployment: {ex}")
 
         print(f"[SUCCESS] Auto-deployment completed! WebApp is now running Version #{new_version}.")
 

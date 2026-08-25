@@ -1,111 +1,492 @@
 <!DOCTYPE html>
 <html lang="th">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
 
-    <title>SmartBill Approve v2.6</title>
+    <title>SmartBill Users Admin</title>
+
+    <!-- Tailwind CSS & Google Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <link rel="stylesheet" href="./css/style.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#312e81',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
 </head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
 
-<body class="bg-gray-100 min-h-screen text-gray-800 font-sans">
-
-    <div id="loading" class="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
-        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
-        <p class="text-gray-500 font-medium animate-pulse">กำลังดึงข้อมูลล่าสุด...</p>
-    </div>
-
-    <!-- Unauthorized Screen -->
-    <div id="unauth-screen" class="hidden p-6">
-        <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 mt-10 border border-gray-100 text-center">
-            <div class="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg class="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
-                    </path>
-                </svg>
-            </div>
-            <h2 class="text-2xl font-bold mb-2 text-gray-800">ไม่มีสิทธิ์เข้าใช้งาน</h2>
-            <p id="unauth-message" class="text-gray-500 text-sm mb-6">คุณไม่มีสิทธิ์เข้าใช้งานระบบนี้ (สำหรับผู้ถือวงเงินสดย่อยเท่านั้น)</p>
+    <!-- Global Loading Overlay -->
+    <div id="loading" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex flex-col items-center justify-center transition-opacity duration-300 hidden">
+        <div class="bg-white p-6 rounded-3xl shadow-2xl flex flex-col items-center max-w-xs mx-4 text-center">
+            <div class="loader-spinner-indigo mb-4"></div>
+            <p id="loading-text" class="text-slate-700 font-semibold text-sm">กำลังโหลดข้อมูล...</p>
         </div>
     </div>
 
-    <!-- 0. Registration Screen -->
-    <div id="reg-screen" class="hidden p-6">
-        <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 mt-10 border border-gray-100 text-center">
-            <div class="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg class="w-10 h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z">
-                    </path>
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-full px-4"></div>
+
+    <!-- ======================================================================
+         SCREEN 1: PIN ENTRY (LANDING)
+         ====================================================================== -->
+    <main id="pin-screen" class="flex-1 flex items-center justify-center p-4 sm:p-6">
+        <div class="w-full max-w-md bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 p-6 sm:p-8 text-center animate-slide-up">
+            
+            <!-- App Logo / Badge -->
+            <div class="w-16 h-16 bg-gradient-to-tr from-brand-600 to-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg shadow-brand-500/30 text-white">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                 </svg>
             </div>
-            <h2 class="text-2xl font-bold mb-2 text-indigo-700">ลงทะเบียนผู้อนุมัติ</h2>
-            <p class="text-gray-500 text-sm mb-6">ระบุรหัสผ่านส่วนตัวเพื่อเริ่มการอนุมัติ</p>
-            <div class="space-y-4">
-                <input type="password" id="reg-pass" placeholder="กรอกรหัสผ่านของคุณ"
-                    class="w-full px-4 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-center text-lg">
-                <button onclick="register()"
-                    class="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl hover:bg-indigo-700 transition transform active:scale-95 shadow-lg">
-                    ยืนยันตัวตน
+
+            <span class="inline-block px-3 py-1 bg-brand-50 text-brand-700 text-xs font-bold rounded-full mb-2">SmartBill Petty Cash</span>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">เข้าสู่ระบบจัดการผู้ใช้</h1>
+            <p class="text-slate-500 text-sm mt-1.5 mb-6">กรุณาระบุรหัส PIN 6 หลักเพื่อเข้าใช้งาน</p>
+
+            <!-- PIN Form -->
+            <form onsubmit="handlePinSubmit(event)" class="space-y-6">
+                <div>
+                    <input type="password" 
+                           id="pin-input" 
+                           maxlength="6" 
+                           inputmode="numeric" 
+                           pattern="[0-9]*" 
+                           placeholder="••••••" 
+                           autocomplete="off"
+                           class="w-full h-16 text-center text-3xl font-black tracking-widest text-brand-900 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-brand-600 focus:bg-white focus:outline-none transition shadow-inner">
+                    <p id="pin-error" class="text-rose-500 text-xs font-semibold mt-2 hidden"></p>
+                </div>
+
+                <button type="submit" 
+                        id="btn-verify-pin" 
+                        class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-brand-600/30 transition transform active:scale-98 flex items-center justify-center gap-2">
+                    <span>ยืนยันรหัส PIN</span>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                    </svg>
+                </button>
+            </form>
+
+            <div class="mt-6 pt-5 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-400">
+                <svg class="w-4 h-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                </svg>
+                <span>ระบบรักษาความปลอดภัยแบบ 2-Way PIN Lock</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- ======================================================================
+         SCREEN 2: ADMIN DASHBOARD
+         ====================================================================== -->
+    <div id="admin-screen" class="flex-1 flex flex-col hidden pb-16">
+        
+        <!-- Top Navigation Header -->
+        <header class="glass-header sticky top-0 z-30 px-4 sm:px-8 py-3.5 shadow-sm">
+            <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white font-bold shadow-md shadow-brand-500/20">
+                        SB
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 class="font-extrabold text-lg text-slate-900 leading-tight">SmartBill Users Admin</h2>
+                            <span id="app-version-badge" class="px-2 py-0.5 bg-brand-100 text-brand-700 text-[10px] font-bold rounded-full">v1.0.0</span>
+                        </div>
+                        <p class="text-xs text-slate-500">จัดการข้อมูลผู้ใช้และสิทธิ์ผู้อนุมัติ</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="loadUsersList()" 
+                            title="รีเฟรชข้อมูล"
+                            class="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition flex items-center gap-1.5 text-xs font-semibold">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        <span class="hidden sm:inline">รีเฟรช</span>
+                    </button>
+                    <button onclick="handleLogout()" 
+                            title="ออกจากระบบ"
+                            class="p-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition flex items-center gap-1.5 text-xs font-semibold">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                        </svg>
+                        <span class="hidden sm:inline">ออก</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <div class="max-w-7xl mx-auto w-full px-4 sm:px-8 py-6 space-y-6">
+            
+            <!-- Summary Stats Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">ผู้ใช้ทั้งหมด</p>
+                    <p id="stat-total" class="text-2xl sm:text-3xl font-black text-slate-800 mt-1">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p class="text-xs font-bold text-emerald-500 uppercase tracking-wider">ลงทะเบียนแล้ว</p>
+                    <p id="stat-registered" class="text-2xl sm:text-3xl font-black text-emerald-600 mt-1">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p class="text-xs font-bold text-amber-500 uppercase tracking-wider">รอลงทะเบียน (PIN)</p>
+                    <p id="stat-pending" class="text-2xl sm:text-3xl font-black text-amber-600 mt-1">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p class="text-xs font-bold text-brand-500 uppercase tracking-wider">ผู้ถือวงเงิน (Control)</p>
+                    <p id="stat-control" class="text-2xl sm:text-3xl font-black text-brand-600 mt-1">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm col-span-2 sm:col-span-1">
+                    <p class="text-xs font-bold text-teal-500 uppercase tracking-wider">สิทธิ์อนุมัติ (Approver)</p>
+                    <p id="stat-approver" class="text-2xl sm:text-3xl font-black text-teal-600 mt-1">0</p>
+                </div>
+            </div>
+
+            <!-- Action & Search Bar -->
+            <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+                <div class="flex-1 flex flex-col sm:flex-row gap-2.5">
+                    <div class="relative flex-1">
+                        <svg class="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <input type="text" 
+                               id="search-input" 
+                               oninput="filterUsers()" 
+                               placeholder="ค้นหาตามชื่อ, รหัสพนักงาน, LINE UID..." 
+                               class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-brand-500 focus:outline-none transition">
+                    </div>
+                    
+                    <select id="status-filter" 
+                            onchange="filterUsers()" 
+                            class="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 font-medium focus:bg-white focus:border-brand-500 focus:outline-none transition">
+                        <option value="ALL">ทุกสถานะ</option>
+                        <option value="REGISTERED">ลงทะเบียนแล้ว</option>
+                        <option value="PENDING">รอลงทะเบียน (Pending)</option>
+                        <option value="CONTROL">ผู้ถือวงเงิน (Control = YES)</option>
+                        <option value="APPROVER">ผู้อนุมัติชดเชย (Approver = YES)</option>
+                    </select>
+                </div>
+
+                <button onclick="openAddUserModal()" 
+                        class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-md shadow-brand-600/20 transition flex items-center justify-center gap-2 text-sm flex-shrink-0 active:scale-98">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    <span>เพิ่มผู้ใช้ใหม่</span>
+                </button>
+            </div>
+
+            <!-- Users Table (Desktop & Tablet) -->
+            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden hidden md:block">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            <tr>
+                                <th class="px-5 py-3.5">ชื่อผู้ใช้ (Request Name)</th>
+                                <th class="px-4 py-3.5">รหัสพนักงาน</th>
+                                <th class="px-4 py-3.5 text-right">วงเงินสดย่อย</th>
+                                <th class="px-4 py-3.5 text-center">ผู้ถือวงเงิน</th>
+                                <th class="px-4 py-3.5 text-center">สิทธิ์อนุมัติชดเชย</th>
+                                <th class="px-4 py-3.5 text-center">สถานะ</th>
+                                <th class="px-5 py-3.5 text-right">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body" class="divide-y divide-slate-100">
+                            <!-- Rows will be injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Users Cards List (Mobile) -->
+            <div id="users-card-container" class="md:hidden space-y-3">
+                <!-- Mobile cards will be injected here -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="bg-white rounded-2xl border border-slate-100 p-12 text-center shadow-sm hidden">
+                <div class="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-400">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                    </svg>
+                </div>
+                <h3 class="font-bold text-slate-800 text-base">ไม่พบข้อมูลผู้ใช้</h3>
+                <p class="text-slate-400 text-xs mt-1">ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ======================================================================
+         SCREEN 3: USER REGISTRATION / BINDING SCREEN
+         ====================================================================== -->
+    <div id="register-screen" class="flex-1 flex items-center justify-center p-4 sm:p-6 hidden">
+        <div class="w-full max-w-md bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 p-6 sm:p-8 text-center animate-slide-up">
+            
+            <div class="w-20 h-20 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+                <img id="reg-avatar" src="https://placehold.co/100x100?text=LINE" class="w-full h-full object-cover rounded-full hidden" alt="Avatar">
+                <svg id="reg-avatar-fallback" class="w-10 h-10 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                </svg>
+            </div>
+
+            <span class="inline-block px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full mb-2">ตรวจสอบตัวตนสำเร็จ</span>
+            <h2 class="text-2xl font-extrabold text-slate-900">ผูกบัญชี LINE กับระบบ</h2>
+            <p class="text-slate-500 text-xs mt-1 mb-6">กรุณายืนยันข้อมูลส่วนตัวเพื่อเริ่มต้นใช้งาน</p>
+
+            <div class="bg-slate-50 rounded-2xl p-4 text-left space-y-2.5 mb-6 border border-slate-100">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-400 font-medium">ชื่อขอเบิก (Request Name)</span>
+                    <span id="reg-name" class="font-bold text-slate-800 text-sm">-</span>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-400 font-medium">รหัสพนักงาน (Emp No)</span>
+                    <span id="reg-emp" class="font-semibold text-slate-700">-</span>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-400 font-medium">วงเงินสดย่อย</span>
+                    <span id="reg-limit" class="font-bold text-brand-600 text-sm">฿0</span>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-400 font-medium">ผู้ถือวงเงินสดย่อย</span>
+                    <span id="reg-control" class="font-semibold text-slate-700">-</span>
+                </div>
+                <div class="flex justify-between items-center text-xs pt-2 border-t border-slate-200/60">
+                    <span class="text-slate-400 font-medium">LINE Profile</span>
+                    <span id="reg-line-name" class="font-semibold text-slate-700">-</span>
+                </div>
+            </div>
+
+            <button onclick="handleCompleteRegistration()" 
+                    class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg shadow-emerald-600/30 transition transform active:scale-98 flex items-center justify-center gap-2">
+                <span>ยืนยันการผูกบัญชี</span>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- ======================================================================
+         SCREEN 4: REGISTRATION SUCCESS SCREEN
+         ====================================================================== -->
+    <div id="reg-success-screen" class="flex-1 flex items-center justify-center p-4 sm:p-6 hidden">
+        <div class="w-full max-w-md bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 p-8 text-center animate-slide-up">
+            <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-5">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-extrabold text-slate-900">ยืนยันตัวตนสำเร็จ!</h2>
+            <p class="text-slate-500 text-sm mt-2 mb-6">บัญชี LINE ของท่านถูกเชื่อมโยงกับระบบ SmartBill เรียบร้อยแล้ว สามารถปิดหน้านี้เพื่อกลับไปยัง LINE</p>
+            <button onclick="closeLiff()" 
+                    class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 rounded-2xl transition">
+                ปิดหน้าต่างนี้
+            </button>
+        </div>
+    </div>
+
+    <!-- ======================================================================
+         MODAL 1: ADD / EDIT USER MODAL
+         ====================================================================== -->
+    <div id="user-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 flex items-center justify-center p-4 hidden">
+        <div class="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 sm:p-8 animate-slide-up max-h-[90vh] overflow-y-auto">
+            
+            <div class="flex items-center justify-between mb-5">
+                <div>
+                    <h3 id="modal-title" class="text-xl font-extrabold text-slate-900">เพิ่มผู้ใช้ใหม่</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">กรอกข้อมูลผู้ใช้งานสำหรับระบบเบิกเงินสดย่อย</p>
+                </div>
+                <button onclick="closeUserModal()" class="p-2 text-slate-400 hover:text-slate-600 rounded-full">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <form id="user-form" onsubmit="handleSaveUser(event)" class="space-y-4">
+                <input type="hidden" id="form-target-uid">
+
+                <!-- Request Name -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        ชื่อผู้ใช้ (Request Name) <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="text" 
+                           id="form-request-name" 
+                           required 
+                           placeholder="เช่น สมชาย ใจดี (บังคับไม่ซ้ำ)" 
+                           class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-brand-500 focus:outline-none transition">
+                </div>
+
+                <!-- Emp No -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        รหัสพนักงาน (Emp No)
+                    </label>
+                    <input type="text" 
+                           id="form-emp-no" 
+                           placeholder="เช่น EMP001" 
+                           class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-brand-500 focus:outline-none transition">
+                </div>
+
+                <!-- Limit -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        วงเงินสดย่อย (บาท)
+                    </label>
+                    <div class="relative">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">฿</span>
+                        <input type="number" 
+                               id="form-pc-limit" 
+                               min="0" 
+                               step="any" 
+                               placeholder="0" 
+                               class="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-brand-500 focus:outline-none transition font-semibold">
+                    </div>
+                </div>
+
+                <!-- Switches Section -->
+                <div class="pt-2 border-t border-slate-100 space-y-3.5">
+                    
+                    <!-- PettyCash Control Switch -->
+                    <div class="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                        <div class="pr-3">
+                            <span class="font-bold text-slate-800 text-sm block">ผู้ถือวงเงินสดย่อย (Control)</span>
+                            <span class="text-[11px] text-slate-500 block leading-snug mt-0.5">เปิดหากเป็นผู้รับผิดชอบถือเงินสดย่อยสำหรับจ่ายเบิก</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="form-pettycash-control" onchange="handleControlSwitchChange()">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Can Approve Switch -->
+                    <div id="approver-switch-container" class="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                        <div class="pr-3">
+                            <span class="font-bold text-slate-800 text-sm block">สิทธิ์อนุมัติเงินชดเชย (Approver)</span>
+                            <span id="approver-helper-text" class="text-[11px] text-slate-500 block leading-snug mt-0.5">มีสิทธิ์อนุมัติการชดเชยเงินเข้าวงเงินสดย่อย</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="form-can-approve">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                </div>
+
+                <!-- Form Action Buttons -->
+                <div class="pt-4 flex gap-3">
+                    <button type="button" 
+                            onclick="closeUserModal()" 
+                            class="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition text-sm">
+                        ยกเลิก
+                    </button>
+                    <button type="submit" 
+                            id="btn-save-user"
+                            class="flex-1 py-3 px-4 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-md shadow-brand-600/20 transition text-sm">
+                        บันทึกข้อมูล
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <!-- ======================================================================
+         MODAL 2: PIN GENERATED SUCCESS POPUP
+         ====================================================================== -->
+    <div id="pin-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 sm:p-8 text-center animate-slide-up">
+            
+            <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+
+            <h3 class="text-xl font-extrabold text-slate-900">สร้างผู้ใช้สำเร็จ</h3>
+            <p class="text-xs text-slate-500 mt-1 mb-5">คัดลอก PIN 6 หลักนี้ส่งให้ผู้ใช้เพื่อยืนยันตัวตนใน LINE</p>
+
+            <!-- PIN Display Card -->
+            <div class="bg-brand-50 border-2 border-brand-200 rounded-2xl p-4 mb-4">
+                <span class="text-[10px] font-bold text-brand-600 uppercase tracking-widest block mb-1">รหัส PIN 6 หลัก</span>
+                <p id="generated-pin-display" class="text-4xl font-black text-brand-900 tracking-[0.25em] leading-none py-1">000000</p>
+                <p id="generated-pin-user" class="text-xs font-semibold text-slate-600 mt-2 truncate"></p>
+            </div>
+
+            <button onclick="copyGeneratedPin()" 
+                    id="btn-copy-pin" 
+                    class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl shadow-md shadow-brand-600/20 transition flex items-center justify-center gap-2 text-sm mb-3">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                </svg>
+                <span id="copy-pin-btn-text">คัดลอกรหัส PIN</span>
+            </button>
+
+            <button onclick="closePinModal()" 
+                    class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition text-xs">
+                เสร็จสิ้น / ปิดหน้าต่าง
+            </button>
+        </div>
+    </div>
+
+    <!-- ======================================================================
+         MODAL 3: CONFIRM DELETE
+         ====================================================================== -->
+    <div id="confirm-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 text-center animate-slide-up">
+            <div class="w-14 h-14 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-extrabold text-slate-900">ยืนยันการลบผู้ใช้</h3>
+            <p id="confirm-delete-name" class="text-sm font-semibold text-slate-700 mt-1"></p>
+            <p class="text-xs text-slate-400 mt-1 mb-6">ข้อมูลผู้ใช้และสิทธิ์ในระบบจะถูกลบออกจากทั้งสองชีต</p>
+
+            <div class="flex gap-3">
+                <button onclick="closeConfirmModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition text-xs">
+                    ยกเลิก
+                </button>
+                <button id="btn-confirm-delete-action" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-md shadow-rose-600/20 transition text-xs">
+                    ยืนยันการลบ
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- 1. List Screen -->
-    <div id="list-screen" class="hidden pb-40">
-        <header class="bg-white border-b sticky top-0 z-20 px-4 py-4 flex justify-between items-center shadow-sm">
-            <div>
-                <h1 class="font-black text-xl text-indigo-900">SmartBill Approve v2.6</h1>
-                <p id="user-info" class="text-[10px] text-gray-400 font-medium uppercase tracking-wider"></p>
-            </div>
-            <button onclick="loadData()"
-                class="bg-gray-100 p-2.5 rounded-full text-gray-600 active:bg-indigo-100 active:text-indigo-600 transition">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
-                    </path>
-                </svg>
-            </button>
-        </header>
+    <!-- App Version Footer -->
+    <footer class="py-4 text-center text-xs text-slate-400 border-t border-slate-100 mt-auto">
+        <span>SmartBill Users Admin • </span>
+        <span id="footer-version">v1.0.0</span>
+    </footer>
 
-        <div id="data-container" class="p-4 space-y-5 max-w-2xl mx-auto">
-            <!-- Cards will be injected here -->
-        </div>
-
-        <div id="no-data" class="hidden text-center py-24 px-6">
-            <div class="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg class="w-12 h-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-            </div>
-            <h3 class="text-xl font-bold text-gray-800">จัดการเรียบร้อยแล้ว!</h3>
-            <p class="text-gray-500 mt-2">ไม่มีรายการที่ต้องจ่ายเงินในขณะนี้</p>
-        </div>
-
-        <!-- Floating Action Bar -->
-        <div id="action-bar"
-            class="fixed bottom-6 left-4 right-4 z-30 max-w-lg mx-auto bg-white/90 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl flex gap-3">
-            <button onclick="processApprove('Rejected')"
-                class="flex-1 bg-white border-2 border-red-500 text-red-600 font-bold py-4 rounded-xl active:bg-red-50 transition active:scale-95 uppercase tracking-wide">
-                Reject
-            </button>
-            <button onclick="processApprove('Paided')"
-                class="flex-1 bg-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 active:bg-indigo-700 transition active:scale-95 uppercase tracking-wide">
-                Paid
-            </button>
-        </div>
-    </div>
-
-    <script src="./js/config.js?v=2.6.6"></script>
-    <script src="./js/app.js?v=2.6.6"></script>
+    <!-- Scripts -->
+    <script src="./js/config.js"></script>
+    <script src="./js/app.js"></script>
 </body>
-
 </html>
