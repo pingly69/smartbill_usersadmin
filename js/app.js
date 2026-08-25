@@ -133,7 +133,14 @@ async function handlePinSubmit(e) {
             state.adminPin = pin;
             showScreen('admin');
             showToast('เข้าสู่ระบบผู้ดูแลระบบสำเร็จ', 'success');
-            await loadUsersList();
+
+            if (res.usersList && Array.isArray(res.usersList)) {
+                state.usersList = res.usersList;
+                updateStats();
+                filterUsers();
+            } else {
+                await loadUsersList();
+            }
         } else if (res.role === 'USER') {
             state.currentPendingUser = {
                 pin: pin,

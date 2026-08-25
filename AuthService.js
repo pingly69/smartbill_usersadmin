@@ -17,10 +17,17 @@ const AuthService = {
 
     // 1. Check against ADMIN_PINCODE first
     if (adminPin && inputPin === adminPin) {
+      let usersData = [];
+      try {
+        usersData = UsersProfileService.listUsers().data || [];
+      } catch (err) {
+        Logger.log('Could not preload usersList: ' + err.toString());
+      }
       return {
         success: true,
         role: 'ADMIN',
-        message: 'เข้าสู่ระบบผู้ดูแลระบบสำเร็จ'
+        message: 'เข้าสู่ระบบผู้ดูแลระบบสำเร็จ',
+        usersList: usersData
       };
     }
 

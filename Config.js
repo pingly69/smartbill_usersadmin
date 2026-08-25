@@ -1,23 +1,35 @@
 /**
- * Config.js - Central Configuration & Script Properties
+ * Config.js - Central Configuration & Script Properties with In-Memory Caching
  * SmartBill Users Admin
  */
 
+let _cachedProperties = null;
+function getScriptProps() {
+  if (!_cachedProperties) {
+    try {
+      _cachedProperties = PropertiesService.getScriptProperties().getProperties() || {};
+    } catch(e) {
+      _cachedProperties = {};
+    }
+  }
+  return _cachedProperties;
+}
+
 const CONFIG = {
   get SPREADSHEET_ID() {
-    const props = PropertiesService.getScriptProperties().getProperties() || {};
+    const props = getScriptProps();
     return props['SPREADSHEET_ID'] || '1amztKC_QEVv9H7u6ubGCJYEHCHo0NWnJhT6ksNQCpnA';
   },
   get SHEET_USERS_PROFILE() {
-    const props = PropertiesService.getScriptProperties().getProperties() || {};
+    const props = getScriptProps();
     return props['SHEET_USERS_PROFILE'] || 'users_profile';
   },
   get SHEET_APPROVE_USERS() {
-    const props = PropertiesService.getScriptProperties().getProperties() || {};
+    const props = getScriptProps();
     return props['SHEET_APPROVE_USERS'] || 'Approve_Users';
   },
   get ADMIN_PINCODE() {
-    const props = PropertiesService.getScriptProperties().getProperties() || {};
+    const props = getScriptProps();
     const pin = props['ADMIN_PINCODE'];
     return pin ? String(pin).trim() : '999999';
   },
@@ -41,6 +53,7 @@ function setupScriptProperties(customAdminPin) {
   };
   
   PropertiesService.getScriptProperties().setProperties(properties);
+  _cachedProperties = properties;
   Logger.log('Script Properties setup successfully: %s', JSON.stringify(properties));
   return {
     success: true,
