@@ -106,19 +106,19 @@ const UsersProfileService = {
         pettycash_control: isControl ? 'YES' : 'NO'
       });
 
-      // 5. Handle Approve_Users sync
+      // 5. Handle Approve_Users sync (Always populate line_uid with PIN consistently)
       if (isControl) {
         SheetHelper.appendRow(CONFIG.SHEET_APPROVE_USERS, {
           approve_request: reqName,
           line_profile: newPin,
-          line_uid: '',
+          line_uid: newPin,
           pettycash_approve: 'NO'
         });
       } else if (canApprove) {
         SheetHelper.appendRow(CONFIG.SHEET_APPROVE_USERS, {
           approve_request: reqName,
           line_profile: newPin,
-          line_uid: '',
+          line_uid: newPin,
           pettycash_approve: 'YES'
         });
       }
@@ -197,7 +197,9 @@ const UsersProfileService = {
         });
         allApproves.forEach(a => {
           const prof = String(a.line_profile || '').trim();
+          const aUid = String(a.line_uid || '').trim();
           if (Utils.isPendingPin(prof)) existingPins.add(prof);
+          if (Utils.isPendingPin(aUid)) existingPins.add(aUid);
         });
 
         generatedNewPin = Utils.generateUniquePin(existingPins);
@@ -219,11 +221,10 @@ const UsersProfileService = {
         const appProfile = String(app.line_profile || '').trim();
         const appReq = Utils.normalizeName(app.approve_request);
 
-        if (isPending || generatedNewPin) {
-          return (currentRawUid && appProfile === currentRawUid) || (appReq === Utils.normalizeName(oldReqName) && (!appUid || Utils.isPendingPin(appUid)));
-        } else {
-          return (currentRawUid && appUid === currentRawUid) || appReq === Utils.normalizeName(oldReqName);
+        if (currentRawUid && (appUid === currentRawUid || appProfile === currentRawUid)) {
+          return true;
         }
+        return appReq === Utils.normalizeName(oldReqName);
       });
 
       const shouldHaveApprove = isControl || canApprove;
@@ -237,14 +238,14 @@ const UsersProfileService = {
           };
           if (isPending || generatedNewPin) {
             updatePayload.line_profile = finalUid;
-            updatePayload.line_uid = '';
+            updatePayload.line_uid = finalUid;
           }
           SheetHelper.updateRow(CONFIG.SHEET_APPROVE_USERS, approveMatch._rowIndex, updatePayload);
         } else {
           SheetHelper.appendRow(CONFIG.SHEET_APPROVE_USERS, {
             approve_request: newReqName,
             line_profile: (isPending || generatedNewPin) ? finalUid : (data.displayName || newReqName),
-            line_uid: (isPending || generatedNewPin) ? '' : finalUid,
+            line_uid: finalUid,
             pettycash_approve: targetPettycashApprove
           });
         }
