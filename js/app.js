@@ -50,15 +50,22 @@ async function initApp() {
  */
 async function callApi(action, payload = {}) {
     showLoading(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout safety
+
     try {
         const body = JSON.stringify({ action, ...payload });
         const response = await fetch(GAS_WEB_APP_URL, {
             method: 'POST',
             body: body,
+            mode: 'cors',
+            redirect: 'follow',
+            signal: controller.signal,
             headers: {
                 'Content-Type': 'text/plain;charset=utf-8'
             }
         });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
             throw new Error(`HTTP Error ${response.status}: ${response.statusText}`);
@@ -70,8 +77,12 @@ async function callApi(action, payload = {}) {
         }
         return res;
     } catch (err) {
+        clearTimeout(timeoutId);
         console.error(`API Error (${action}):`, err);
-        showToast(err.message, 'error');
+        const errMsg = err.name === 'AbortError' 
+            ? 'การเชื่อมต่อใช้เวลานานเกินไป กรุณารีเฟรชข้อมูล' 
+            : (err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ');
+        showToast(errMsg, 'error');
         throw err;
     } finally {
         showLoading(false);

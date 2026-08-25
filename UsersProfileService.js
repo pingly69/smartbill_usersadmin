@@ -1,5 +1,5 @@
 /**
- * UsersProfileService.js - CRUD operations for users_profile and sync with Approve_Users
+ * UsersProfileService.js - High-Performance CRUD operations for users_profile and sync with Approve_Users
  * SmartBill Users Admin
  */
 
@@ -34,8 +34,6 @@ const UsersProfileService = {
       const hasApproveRecord = !!approveMatch;
       const pettycashApprove = approveMatch ? String(approveMatch.pettycash_approve || 'NO').toUpperCase() : 'NO';
       const isControl = String(user.pettycash_control || 'NO').toUpperCase() === 'YES';
-
-      // can_approve is true if user has an approve record and pettycash_approve is YES
       const canApprove = hasApproveRecord && pettycashApprove === 'YES';
 
       return {
@@ -75,24 +73,22 @@ const UsersProfileService = {
     }
 
     return SheetHelper.withLock(() => {
-      // 1. Uniqueness check for Request_Name
-      const existingUser = SheetHelper.findRow(CONFIG.SHEET_USERS_PROFILE, row => {
-        return Utils.normalizeName(row.Request_Name) === Utils.normalizeName(reqName);
-      });
+      const allUsers = SheetHelper.getAllRows(CONFIG.SHEET_USERS_PROFILE);
+      const allApproves = SheetHelper.getAllRows(CONFIG.SHEET_APPROVE_USERS);
 
-      if (existingUser) {
+      // 1. Uniqueness check for Request_Name in memory
+      const normReqName = Utils.normalizeName(reqName);
+      const isDuplicate = allUsers.some(row => Utils.normalizeName(row.Request_Name) === normReqName);
+      if (isDuplicate) {
         return { success: false, message: 'ชื่อนี้มีอยู่ในระบบแล้ว กรุณาใช้ชื่ออื่น' };
       }
 
       // 2. Gather existing PINs across sheets
       const existingPins = new Set();
-      const allUsers = SheetHelper.getAllRows(CONFIG.SHEET_USERS_PROFILE);
       allUsers.forEach(u => {
         const uid = String(u.line_uid || '').trim();
         if (Utils.isPendingPin(uid)) existingPins.add(uid);
       });
-
-      const allApproves = SheetHelper.getAllRows(CONFIG.SHEET_APPROVE_USERS);
       allApproves.forEach(a => {
         const prof = String(a.line_profile || '').trim();
         if (Utils.isPendingPin(prof)) existingPins.add(prof);
@@ -110,10 +106,7 @@ const UsersProfileService = {
         pettycash_control: isControl ? 'YES' : 'NO'
       });
 
-      // 5. Handle Approve_Users sync according to business rules:
-      // - If pettycash_control == YES -> MUST have record, pettycash_approve = 'NO'
-      // - Else if can_approve == YES -> MUST have record, pettycash_approve = 'YES'
-      // - Else (regular user) -> NO record in Approve_Users
+      // 5. Handle Approve_Users sync
       if (isControl) {
         SheetHelper.appendRow(CONFIG.SHEET_APPROVE_USERS, {
           approve_request: reqName,
@@ -156,17 +149,23 @@ const UsersProfileService = {
     const isControl = String(data.pettycash_control || 'NO').toUpperCase() === 'YES';
     const canApprove = data.can_approve === true || String(data.can_approve || '').toUpperCase() === 'YES';
 
-    if (!targetUid) {
-      return { success: false, message: 'ไม่พบรหัสผู้ใช้ (line_uid) ที่ต้องการแก้ไข' };
+    if (!targetUid && !data.Request_Name) {
+      return { success: false, message: 'ไม่พบข้อมูลผู้ใช้ที่ต้องการแก้ไข' };
     }
     if (!newReqName) {
       return { success: false, message: 'กรุณาระบุชื่อผู้ใช้ (Request_Name)' };
     }
 
     return SheetHelper.withLock(() => {
-      // 1. Find user in users_profile
-      const userRow = SheetHelper.findRow(CONFIG.SHEET_USERS_PROFILE, row => {
-        return String(row.line_uid || '').trim() === targetUid;
+      const allUsers = SheetHelper.getAllRows(CONFIG.SHEET_USERS_PROFILE);
+      const allApproves = SheetHelper.getAllRows(CONFIG.SHEET_APPROVE_USERS);
+
+      // 1. Find user in memory
+      const userRow = allUsers.find(row => {
+        const uid = String(row.line_uid || '').trim();
+        if (targetUid && uid === targetUid) return true;
+        // Fallback match by original name if targetUid was empty
+        return Utils.normalizeName(row.Request_Name) === Utils.normalizeName(data.old_request_name || newReqName);
       });
 
       if (!userRow) {
@@ -174,34 +173,38 @@ const UsersProfileService = {
       }
 
       const oldReqName = String(userRow.Request_Name || '').trim();
-      const isPending = Utils.isPendingPin(targetUid);
+      const currentRawUid = String(userRow.line_uid || '').trim();
+      const isPending = Utils.isPendingPin(currentRawUid) || !currentRawUid;
 
       // 2. If Request_Name changed, check uniqueness
-      if (Utils.normalizeName(newReqName) !== Utils.normalizeName(oldReqName)) {
-        const dupRow = SheetHelper.findRow(CONFIG.SHEET_USERS_PROFILE, row => {
-          return row._rowIndex !== userRow._rowIndex && Utils.normalizeName(row.Request_Name) === Utils.normalizeName(newReqName);
-        });
-        if (dupRow) {
+      const normNewReqName = Utils.normalizeName(newReqName);
+      if (normNewReqName !== Utils.normalizeName(oldReqName)) {
+        const isDuplicate = allUsers.some(row => row._rowIndex !== userRow._rowIndex && Utils.normalizeName(row.Request_Name) === normNewReqName);
+        if (isDuplicate) {
           return { success: false, message: 'ชื่อนี้มีอยู่ในระบบแล้ว กรุณาใช้ชื่ออื่น' };
         }
       }
 
-      let finalUid = targetUid;
+      let finalUid = currentRawUid;
       let generatedNewPin = null;
 
-      // If user is pending and requested new PIN, or has empty line_uid
-      if (data.regenerate_pin || !targetUid || (isPending && data.regenerate_pin)) {
+      // 3. Check if PIN regeneration needed
+      if (data.regenerate_pin || !currentRawUid) {
         const existingPins = new Set();
-        const allUsers = SheetHelper.getAllRows(CONFIG.SHEET_USERS_PROFILE);
         allUsers.forEach(u => {
           const uid = String(u.line_uid || '').trim();
           if (Utils.isPendingPin(uid)) existingPins.add(uid);
         });
+        allApproves.forEach(a => {
+          const prof = String(a.line_profile || '').trim();
+          if (Utils.isPendingPin(prof)) existingPins.add(prof);
+        });
+
         generatedNewPin = Utils.generateUniquePin(existingPins);
         finalUid = generatedNewPin;
       }
 
-      // 3. Update users_profile
+      // 4. Fast Update users_profile
       SheetHelper.updateRow(CONFIG.SHEET_USERS_PROFILE, userRow._rowIndex, {
         line_uid: finalUid,
         Request_Name: newReqName,
@@ -210,17 +213,16 @@ const UsersProfileService = {
         pettycash_control: isControl ? 'YES' : 'NO'
       });
 
-      // 4. Sync with Approve_Users
-      const allApproves = SheetHelper.getAllRows(CONFIG.SHEET_APPROVE_USERS);
+      // 5. Match & Sync with Approve_Users
       const approveMatch = allApproves.find(app => {
         const appUid = String(app.line_uid || '').trim();
         const appProfile = String(app.line_profile || '').trim();
         const appReq = Utils.normalizeName(app.approve_request);
 
-        if (isPending) {
-          return (targetUid && appProfile === targetUid) || (appReq === Utils.normalizeName(oldReqName) && (!appUid || Utils.isPendingPin(appUid)));
+        if (isPending || generatedNewPin) {
+          return (currentRawUid && appProfile === currentRawUid) || (appReq === Utils.normalizeName(oldReqName) && (!appUid || Utils.isPendingPin(appUid)));
         } else {
-          return appUid === targetUid || appReq === Utils.normalizeName(oldReqName);
+          return (currentRawUid && appUid === currentRawUid) || appReq === Utils.normalizeName(oldReqName);
         }
       });
 
@@ -229,7 +231,6 @@ const UsersProfileService = {
 
       if (shouldHaveApprove) {
         if (approveMatch) {
-          // Update existing Approve_Users record
           const updatePayload = {
             approve_request: newReqName,
             pettycash_approve: targetPettycashApprove
@@ -240,16 +241,14 @@ const UsersProfileService = {
           }
           SheetHelper.updateRow(CONFIG.SHEET_APPROVE_USERS, approveMatch._rowIndex, updatePayload);
         } else {
-          // Append new Approve_Users record
           SheetHelper.appendRow(CONFIG.SHEET_APPROVE_USERS, {
             approve_request: newReqName,
             line_profile: (isPending || generatedNewPin) ? finalUid : (data.displayName || newReqName),
-            line_uid: (isPending || generatedNewPin) ? '' : targetUid,
+            line_uid: (isPending || generatedNewPin) ? '' : finalUid,
             pettycash_approve: targetPettycashApprove
           });
         }
       } else {
-        // User should not be in Approve_Users; delete if exists
         if (approveMatch) {
           SheetHelper.deleteRow(CONFIG.SHEET_APPROVE_USERS, approveMatch._rowIndex);
         }
@@ -273,11 +272,10 @@ const UsersProfileService = {
     }
 
     return SheetHelper.withLock(() => {
-      // Find in users_profile
-      const userRow = SheetHelper.findRow(CONFIG.SHEET_USERS_PROFILE, row => {
-        return String(row.line_uid || '').trim() === targetUid;
-      });
+      const allUsers = SheetHelper.getAllRows(CONFIG.SHEET_USERS_PROFILE);
+      const allApproves = SheetHelper.getAllRows(CONFIG.SHEET_APPROVE_USERS);
 
+      const userRow = allUsers.find(row => String(row.line_uid || '').trim() === targetUid);
       if (!userRow) {
         return { success: false, message: 'ไม่พบข้อมูลผู้ใช้ในระบบ users_profile' };
       }
@@ -285,8 +283,6 @@ const UsersProfileService = {
       const reqName = String(userRow.Request_Name || '').trim();
       const isPending = Utils.isPendingPin(targetUid);
 
-      // Find in Approve_Users
-      const allApproves = SheetHelper.getAllRows(CONFIG.SHEET_APPROVE_USERS);
       const approveMatch = allApproves.find(app => {
         const appUid = String(app.line_uid || '').trim();
         const appProfile = String(app.line_profile || '').trim();
@@ -299,10 +295,7 @@ const UsersProfileService = {
         }
       });
 
-      // Delete from users_profile
       const userDeleted = SheetHelper.deleteRow(CONFIG.SHEET_USERS_PROFILE, userRow._rowIndex);
-
-      // Delete from Approve_Users if exists
       let approveDeleted = true;
       if (approveMatch) {
         approveDeleted = SheetHelper.deleteRow(CONFIG.SHEET_APPROVE_USERS, approveMatch._rowIndex);
