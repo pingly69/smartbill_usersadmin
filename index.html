@@ -396,6 +396,18 @@
                         </label>
                     </div>
 
+                    <!-- Regenerate PIN Switch (Visible in Edit mode for Pending users) -->
+                    <div id="regenerate-pin-container" class="flex items-center justify-between p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200 hidden">
+                        <div class="pr-3">
+                            <span class="font-bold text-amber-900 text-sm block">สุ่มสร้าง PIN 6 หลักใหม่</span>
+                            <span class="text-[11px] text-amber-700 block leading-snug mt-0.5">เปิดหากต้องการออก PIN ใหม่สำหรับส่งให้ User ลงทะเบียน</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="form-regenerate-pin">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
                 </div>
 
                 <!-- Form Action Buttons -->

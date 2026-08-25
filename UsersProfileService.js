@@ -13,7 +13,9 @@ const UsersProfileService = {
 
     const list = userRows.map(user => {
       const rawUid = String(user.line_uid || '').trim();
-      const isPending = Utils.isPendingPin(rawUid);
+      const is6DigitPin = Utils.isPendingPin(rawUid);
+      const isEmptyUid = !rawUid;
+      const isPending = is6DigitPin || isEmptyUid;
       const reqNameNormalized = Utils.normalizeName(user.Request_Name);
 
       // Find matching row in Approve_Users
@@ -23,7 +25,7 @@ const UsersProfileService = {
         const appReq = Utils.normalizeName(app.approve_request);
 
         if (isPending) {
-          return appProfile === rawUid || (appReq === reqNameNormalized && (!appUid || Utils.isPendingPin(appUid)));
+          return (rawUid && appProfile === rawUid) || (appReq === reqNameNormalized && (!appUid || Utils.isPendingPin(appUid)));
         } else {
           return appUid === rawUid || appReq === reqNameNormalized;
         }
@@ -44,6 +46,7 @@ const UsersProfileService = {
         pettycash_control: isControl ? 'YES' : 'NO',
         isPending: isPending,
         status: isPending ? 'PENDING' : 'REGISTERED',
+        needsPin: isEmptyUid,
         hasApproveRecord: hasApproveRecord,
         pettycash_approve: pettycashApprove,
         can_approve: canApprove,
@@ -183,8 +186,24 @@ const UsersProfileService = {
         }
       }
 
+      let finalUid = targetUid;
+      let generatedNewPin = null;
+
+      // If user is pending and requested new PIN, or has empty line_uid
+      if (data.regenerate_pin || !targetUid || (isPending && data.regenerate_pin)) {
+        const existingPins = new Set();
+        const allUsers = SheetHelper.getAllRows(CONFIG.SHEET_USERS_PROFILE);
+        allUsers.forEach(u => {
+          const uid = String(u.line_uid || '').trim();
+          if (Utils.isPendingPin(uid)) existingPins.add(uid);
+        });
+        generatedNewPin = Utils.generateUniquePin(existingPins);
+        finalUid = generatedNewPin;
+      }
+
       // 3. Update users_profile
       SheetHelper.updateRow(CONFIG.SHEET_USERS_PROFILE, userRow._rowIndex, {
+        line_uid: finalUid,
         Request_Name: newReqName,
         emp_no: newEmpNo,
         'pc.limit': newPcLimit,
@@ -199,7 +218,7 @@ const UsersProfileService = {
         const appReq = Utils.normalizeName(app.approve_request);
 
         if (isPending) {
-          return appProfile === targetUid || (appReq === Utils.normalizeName(oldReqName) && (!appUid || Utils.isPendingPin(appUid)));
+          return (targetUid && appProfile === targetUid) || (appReq === Utils.normalizeName(oldReqName) && (!appUid || Utils.isPendingPin(appUid)));
         } else {
           return appUid === targetUid || appReq === Utils.normalizeName(oldReqName);
         }
@@ -215,16 +234,17 @@ const UsersProfileService = {
             approve_request: newReqName,
             pettycash_approve: targetPettycashApprove
           };
-          if (isPending) {
-            updatePayload.line_profile = targetUid;
+          if (isPending || generatedNewPin) {
+            updatePayload.line_profile = finalUid;
+            updatePayload.line_uid = '';
           }
           SheetHelper.updateRow(CONFIG.SHEET_APPROVE_USERS, approveMatch._rowIndex, updatePayload);
         } else {
           // Append new Approve_Users record
           SheetHelper.appendRow(CONFIG.SHEET_APPROVE_USERS, {
             approve_request: newReqName,
-            line_profile: isPending ? targetUid : (data.displayName || newReqName),
-            line_uid: isPending ? '' : targetUid,
+            line_profile: (isPending || generatedNewPin) ? finalUid : (data.displayName || newReqName),
+            line_uid: (isPending || generatedNewPin) ? '' : targetUid,
             pettycash_approve: targetPettycashApprove
           });
         }
@@ -237,7 +257,8 @@ const UsersProfileService = {
 
       return {
         success: true,
-        message: 'บันทึกการแก้ไขข้อมูลสำเร็จ'
+        message: 'บันทึกการแก้ไขข้อมูลสำเร็จ',
+        data: generatedNewPin ? { pin: generatedNewPin, Request_Name: newReqName } : null
       };
     });
   },

@@ -448,6 +448,12 @@ function openAddUserModal() {
     document.getElementById('form-pettycash-control').checked = false;
     document.getElementById('form-can-approve').checked = false;
 
+    // Hide regenerate PIN for new user (auto generated)
+    const regenContainer = document.getElementById('regenerate-pin-container');
+    const regenInput = document.getElementById('form-regenerate-pin');
+    if (regenContainer) regenContainer.classList.add('hidden');
+    if (regenInput) regenInput.checked = false;
+
     handleControlSwitchChange();
     document.getElementById('user-modal').classList.remove('hidden');
 }
@@ -466,6 +472,18 @@ function openEditUserModal(line_uid) {
     document.getElementById('form-pc-limit').value = user.pc_limit || 0;
     document.getElementById('form-pettycash-control').checked = user.pettycash_control === 'YES';
     document.getElementById('form-can-approve').checked = user.can_approve === true;
+
+    // Show regenerate PIN only if user is still pending / waiting for LINE registration
+    const regenContainer = document.getElementById('regenerate-pin-container');
+    const regenInput = document.getElementById('form-regenerate-pin');
+    if (regenContainer) {
+        if (user.isPending || user.status === 'PENDING') {
+            regenContainer.classList.remove('hidden');
+        } else {
+            regenContainer.classList.add('hidden');
+        }
+    }
+    if (regenInput) regenInput.checked = false;
 
     handleControlSwitchChange();
     document.getElementById('user-modal').classList.remove('hidden');
@@ -514,6 +532,7 @@ async function handleSaveUser(e) {
     const pcLimit = parseFloat(document.getElementById('form-pc-limit').value) || 0;
     const isControl = document.getElementById('form-pettycash-control').checked;
     const canApprove = document.getElementById('form-can-approve').checked;
+    const regenPin = document.getElementById('form-regenerate-pin')?.checked || false;
 
     if (!reqName) {
         showToast('กรุณาระบุชื่อผู้ใช้ (Request Name)', 'error');
@@ -543,10 +562,16 @@ async function handleSaveUser(e) {
         } else {
             // Update User
             payload.target_line_uid = targetUid;
-            await callApi('updateUser', payload);
+            payload.regenerate_pin = regenPin;
+            const res = await callApi('updateUser', payload);
             closeUserModal();
             showToast('บันทึกการแก้ไขข้อมูลสำเร็จ', 'success');
             await loadUsersList();
+
+            // If PIN was regenerated, show PIN Popup
+            if (res.data && res.data.pin) {
+                showGeneratedPinModal(res.data.pin, reqName);
+            }
         }
     } catch (err) {
         // Error toast handled by callApi
